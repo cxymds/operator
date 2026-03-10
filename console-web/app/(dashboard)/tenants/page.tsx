@@ -8,14 +8,7 @@ import { RiAddLine, RiEyeLine, RiDeleteBinLine } from "@remixicon/react"
 import { Page } from "@/components/page"
 import { PageHeader } from "@/components/page-header"
 import { Button } from "@/components/ui/button"
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Spinner } from "@/components/ui/spinner"
 import { routes } from "@/lib/routes"
 import * as api from "@/lib/api"
@@ -46,7 +39,7 @@ export default function TenantsListPage() {
   }, []) // eslint-disable-line react-hooks/exhaustive-deps -- run once on mount
 
   const handleDelete = async (namespace: string, name: string) => {
-    if (!confirm(t("Delete tenant \"{{name}}\"? This cannot be undone.", { name }))) return
+    if (!confirm(t('Delete tenant "{{name}}"? This cannot be undone.', { name }))) return
     setDeleting(`${namespace}/${name}`)
     try {
       await api.deleteTenant(namespace, name)
@@ -84,7 +77,9 @@ export default function TenantsListPage() {
           {t("No tenants yet. Create one to get started.")}
           <div className="mt-4">
             <Button asChild size="sm">
-              <Link href={routes.tenantNew} prefetch={false}>{t("Create Tenant")}</Link>
+              <Link href={routes.tenantNew} prefetch={false}>
+                {t("Create Tenant")}
+              </Link>
             </Button>
           </div>
         </div>
@@ -105,29 +100,30 @@ export default function TenantsListPage() {
               {tenants.map((tnt) => (
                 <TableRow key={`${tnt.namespace}/${tnt.name}`}>
                   <TableCell className="font-medium">{tnt.namespace}</TableCell>
-                  <TableCell>{tnt.name}</TableCell>
-                  <TableCell>{tnt.state}</TableCell>
                   <TableCell>
-                    {tnt.pools.length === 0
-                      ? "-"
-                      : tnt.pools.map((p) => p.name).join(", ")}
+                    <Link
+                      href={routes.tenantDetail(tnt.namespace, tnt.name)}
+                      prefetch={false}
+                      className="text-primary hover:underline"
+                    >
+                      {tnt.name}
+                    </Link>
                   </TableCell>
+                  <TableCell>{tnt.state}</TableCell>
+                  <TableCell>{tnt.pools.length === 0 ? "-" : tnt.pools.map((p) => p.name).join(", ")}</TableCell>
                   <TableCell className="text-muted-foreground">
-                    {tnt.created_at
-                      ? new Date(tnt.created_at).toLocaleString()
-                      : "-"}
+                    {tnt.created_at ? new Date(tnt.created_at).toLocaleString() : "-"}
                   </TableCell>
                   <TableCell>
                     <div className="flex gap-1">
-                      <Button asChild variant="ghost" size="icon-sm">
-                        <Link
-                          href={routes.tenantDetail(tnt.namespace, tnt.name)}
-                          prefetch={false}
-                          title={t("View")}
-                        >
-                          <RiEyeLine className="size-4" />
-                        </Link>
-                      </Button>
+                      <Link
+                        href={routes.tenantDetail(tnt.namespace, tnt.name)}
+                        prefetch={false}
+                        title={t("View")}
+                        className="inline-flex size-8 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+                      >
+                        <RiEyeLine className="size-4" />
+                      </Link>
                       <Button
                         variant="ghost"
                         size="icon-sm"

@@ -5,31 +5,12 @@ import Link from "next/link"
 import { useEffect, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
-import {
-  RiArrowLeftLine,
-  RiDeleteBinLine,
-  RiAddLine,
-  RiFileList3Line,
-  RiRestartLine,
-} from "@remixicon/react"
+import { RiArrowLeftLine, RiDeleteBinLine, RiAddLine, RiFileList3Line, RiRestartLine } from "@remixicon/react"
 import { Page } from "@/components/page"
 import { PageHeader } from "@/components/page-header"
 import { Button } from "@/components/ui/button"
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card"
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Spinner } from "@/components/ui/spinner"
@@ -82,23 +63,35 @@ export function TenantDetailClient({ namespace, name }: TenantDetailClientProps)
   const [editLoading, setEditLoading] = useState(false)
 
   const loadTenant = async () => {
-    try {
-      const [detail, poolRes, podRes, eventRes] = await Promise.all([
-        api.getTenant(namespace, name),
-        api.listPools(namespace, name),
-        api.listPods(namespace, name),
-        api.listTenantEvents(namespace, name),
-      ])
-      setTenant(detail)
-      setPools(poolRes.pools)
-      setPods(podRes.pods)
-      setEvents(eventRes.events)
-    } catch (e) {
-      const err = e as ApiError
-      toast.error(err.message || t("Failed to load tenant"))
-    } finally {
-      setLoading(false)
+    const [detailResult, poolResult, podResult, eventResult] = await Promise.allSettled([
+      api.getTenant(namespace, name),
+      api.listPools(namespace, name),
+      api.listPods(namespace, name),
+      api.listTenantEvents(namespace, name),
+    ])
+
+    const detailOk = detailResult.status === "fulfilled"
+    const poolOk = poolResult.status === "fulfilled"
+    const podOk = podResult.status === "fulfilled"
+    const eventOk = eventResult.status === "fulfilled"
+
+    if (detailOk && poolOk && podOk) {
+      setTenant(detailResult.value)
+      setPools(poolResult.value.pools)
+      setPods(podResult.value.pods)
+      setEvents(eventOk ? eventResult.value.events : [])
+      if (!eventOk) {
+        toast.error(t("Events could not be loaded"))
+      }
+    } else {
+      const err = !detailOk
+        ? (detailResult as PromiseRejectedResult).reason
+        : !poolOk
+          ? (poolResult as PromiseRejectedResult).reason
+          : (podResult as PromiseRejectedResult).reason
+      toast.error((err as ApiError).message || t("Failed to load tenant"))
     }
+    setLoading(false)
   }
 
   useEffect(() => {
@@ -140,7 +133,7 @@ export function TenantDetailClient({ namespace, name }: TenantDetailClientProps)
   }
 
   const handleDeletePool = async (poolName: string) => {
-    if (!confirm(t("Delete pool \"{{name}}\"?", { name: poolName }))) return
+    if (!confirm(t('Delete pool "{{name}}"?', { name: poolName }))) return
     setDeletingPool(poolName)
     try {
       await api.deletePool(namespace, name, poolName)
@@ -169,7 +162,7 @@ export function TenantDetailClient({ namespace, name }: TenantDetailClientProps)
   }
 
   const handleDeletePod = async (podName: string) => {
-    if (!confirm(t("Delete pod \"{{name}}\"?", { name: podName }))) return
+    if (!confirm(t('Delete pod "{{name}}"?', { name: podName }))) return
     setDeletingPod(podName)
     try {
       await api.deletePod(namespace, name, podName)
@@ -252,12 +245,7 @@ export function TenantDetailClient({ namespace, name }: TenantDetailClientProps)
                 {t("Back")}
               </Link>
             </Button>
-            <Button
-              variant="destructive"
-              size="sm"
-              disabled={deleting}
-              onClick={handleDeleteTenant}
-            >
+            <Button variant="destructive" size="sm" disabled={deleting} onClick={handleDeleteTenant}>
               {deleting ? <Spinner className="mr-1 size-4" /> : <RiDeleteBinLine className="mr-1 size-4" />}
               {t("Delete Tenant")}
             </Button>
@@ -267,7 +255,9 @@ export function TenantDetailClient({ namespace, name }: TenantDetailClientProps)
         <h1 className="text-lg font-semibold">
           {tenant.name} <span className="text-muted-foreground">/ {tenant.namespace}</span>
         </h1>
-        <p className="text-sm text-muted-foreground">{t("State")}: {tenant.state}</p>
+        <p className="text-sm text-muted-foreground">
+          {t("State")}: {tenant.state}
+        </p>
       </PageHeader>
 
       <div className="flex gap-2 border-b border-border mb-4">
@@ -294,9 +284,14 @@ export function TenantDetailClient({ namespace, name }: TenantDetailClientProps)
               <CardTitle className="text-base">{t("Details")}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-2 text-sm">
-              <p><span className="text-muted-foreground">{t("Image")}:</span> {tenant.image || "-"}</p>
-              <p><span className="text-muted-foreground">{t("Mount Path")}:</span> {tenant.mount_path || "-"}</p>
-              <p><span className="text-muted-foreground">{t("Created")}:</span>{" "}
+              <p>
+                <span className="text-muted-foreground">{t("Image")}:</span> {tenant.image || "-"}
+              </p>
+              <p>
+                <span className="text-muted-foreground">{t("Mount Path")}:</span> {tenant.mount_path || "-"}
+              </p>
+              <p>
+                <span className="text-muted-foreground">{t("Created")}:</span>{" "}
                 {tenant.created_at ? new Date(tenant.created_at).toLocaleString() : "-"}
               </p>
             </CardContent>
@@ -305,6 +300,9 @@ export function TenantDetailClient({ namespace, name }: TenantDetailClientProps)
             <Card>
               <CardHeader>
                 <CardTitle className="text-base">{t("Services")}</CardTitle>
+                <CardDescription>
+                  {t("Only services created for this tenant are listed (operator/console services are not included).")}
+                </CardDescription>
               </CardHeader>
               <CardContent>
                 <Table>
@@ -320,9 +318,7 @@ export function TenantDetailClient({ namespace, name }: TenantDetailClientProps)
                       <TableRow key={svc.name}>
                         <TableCell>{svc.name}</TableCell>
                         <TableCell>{svc.service_type}</TableCell>
-                        <TableCell>
-                          {svc.ports.map((p) => `${p.name}:${p.port}`).join(", ")}
-                        </TableCell>
+                        <TableCell>{svc.ports.map((p) => `${p.name}:${p.port}`).join(", ")}</TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
@@ -379,6 +375,15 @@ export function TenantDetailClient({ namespace, name }: TenantDetailClientProps)
 
       {tab === "pools" && (
         <div className="space-y-4">
+          <Card>
+            <CardHeader className="pb-2">
+              <CardDescription>
+                {t(
+                  "All pools in this tenant form one unified cluster. Data is distributed across all pools (erasure-coded); every pool is in use. To see disk usage per pool, use RustFS Console (S3 API port 9001) or check PVC usage in the cluster (e.g. kubectl).",
+                )}
+              </CardDescription>
+            </CardHeader>
+          </Card>
           <div className="flex justify-end">
             <Button size="sm" onClick={() => setAddPoolOpen(true)}>
               <RiAddLine className="mr-1 size-4" />
@@ -407,9 +412,7 @@ export function TenantDetailClient({ namespace, name }: TenantDetailClientProps)
                         type="number"
                         min={1}
                         value={addPoolForm.servers}
-                        onChange={(e) =>
-                          setAddPoolForm((f) => ({ ...f, servers: parseInt(e.target.value, 10) || 0 }))
-                        }
+                        onChange={(e) => setAddPoolForm((f) => ({ ...f, servers: parseInt(e.target.value, 10) || 0 }))}
                       />
                     </div>
                     <div className="space-y-2">
@@ -473,7 +476,9 @@ export function TenantDetailClient({ namespace, name }: TenantDetailClientProps)
                     <TableCell>{p.servers}</TableCell>
                     <TableCell>{p.volumes_per_server}</TableCell>
                     <TableCell>{p.state}</TableCell>
-                    <TableCell>{p.ready_replicas}/{p.replicas}</TableCell>
+                    <TableCell>
+                      {p.ready_replicas}/{p.replicas}
+                    </TableCell>
                     <TableCell>
                       <Button
                         variant="ghost"
@@ -482,7 +487,11 @@ export function TenantDetailClient({ namespace, name }: TenantDetailClientProps)
                         disabled={deletingPool === p.name}
                         onClick={() => handleDeletePool(p.name)}
                       >
-                        {deletingPool === p.name ? <Spinner className="size-4" /> : <RiDeleteBinLine className="size-4" />}
+                        {deletingPool === p.name ? (
+                          <Spinner className="size-4" />
+                        ) : (
+                          <RiDeleteBinLine className="size-4" />
+                        )}
                       </Button>
                     </TableCell>
                   </TableRow>
@@ -517,12 +526,7 @@ export function TenantDetailClient({ namespace, name }: TenantDetailClientProps)
                     <TableCell>{p.age}</TableCell>
                     <TableCell>
                       <div className="flex gap-1">
-                        <Button
-                          variant="ghost"
-                          size="icon-xs"
-                          title={t("Logs")}
-                          onClick={() => loadLogs(p.name)}
-                        >
+                        <Button variant="ghost" size="icon-xs" title={t("Logs")} onClick={() => loadLogs(p.name)}>
                           <RiFileList3Line className="size-4" />
                         </Button>
                         <Button
@@ -562,7 +566,9 @@ export function TenantDetailClient({ namespace, name }: TenantDetailClientProps)
           {logsPod && (
             <Card>
               <CardHeader className="flex flex-row items-center justify-between">
-                <CardTitle className="text-base">{t("Logs")}: {logsPod}</CardTitle>
+                <CardTitle className="text-base">
+                  {t("Logs")}: {logsPod}
+                </CardTitle>
                 <Button variant="ghost" size="sm" onClick={() => setLogsPod(null)}>
                   {t("Close")}
                 </Button>
@@ -607,9 +613,7 @@ export function TenantDetailClient({ namespace, name }: TenantDetailClientProps)
                     <TableCell>{ev.reason}</TableCell>
                     <TableCell className="max-w-md truncate">{ev.message}</TableCell>
                     <TableCell>{ev.involved_object}</TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {ev.last_timestamp || "-"}
-                    </TableCell>
+                    <TableCell className="text-muted-foreground">{ev.last_timestamp || "-"}</TableCell>
                   </TableRow>
                 ))
               )}
